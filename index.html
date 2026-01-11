@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<title>F25 Floor Calc</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+*{box-sizing:border-box;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans TC",sans-serif;}
+body{margin:0;padding:16px;background:#f4f6fa;}
+.container{max-width:900px;margin:0 auto;background:#fff;border-radius:12px;padding:16px;box-shadow:0 4px 12px rgba(0,0,0,.04);}h1{text-align:center;font-size:20px;margin-bottom:12px;}
+.section-title{font-weight:700;margin:16px 0 8px;color:#333;border-left:4px solid #0072e3;padding-left:8px;font-size:16px;}
+table{width:100%;border-collapse:collapse;font-size:14px;margin-bottom:8px;}th,td{border:1px solid #d0d7e2;padding:6px 8px;text-align:center;white-space:nowrap;}th{background:#eef2f9;font-weight:600;}
+input[type=number],select{width:100%;padding:6px 8px;border-radius:6px;border:1px solid #c4c9d5;font-size:14px;}input[readonly]{background:#f5f6fb;}
+.btn{padding:6px 10px;border-radius:999px;border:0;cursor:pointer;background:#0072e3;color:#fff;font-size:13px;}
+.btn-sm{padding:4px 8px;font-size:12px;}.btn-danger{background:#d64545;}
+.note{font-size:12px;color:#777;line-height:1.4;}.field-row{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:8px;}
+.field{flex:1 1 140px;min-width:0;}.chip{display:inline-block;background:#eef2f9;padding:2px 8px;border-radius:999px;font-size:12px;}
+.table-wrapper{overflow-x:auto;width:100%;} .card{background:#fafbff;border:1px solid #e0e4ef;border-radius:10px;padding:10px 10px 4px;margin-bottom:10px;} .card-title{font-size:14px;font-weight:600;margin-bottom:4px;}.text-left{text-align:left;}.highlight{color:#c00000;font-weight:600;}
+</style>
+</head>
+<body>
+<div class="container">
+<h1>F25 Floor Calc</h1>
+
+<!-- EL -->
+<div class="section-title">EL</div>
+<div class="card">
+<div class="card-title">輸入現場已知數據</div>
+<div class="field-row">
+<div class="field"><label>B.M.(m)</label><input type="number" id="bmInput" step="0.001" placeholder="例如 75.455"></div>
+<div class="field"><label>水準尺讀數(m)</label><input type="number" id="staffInput" step="0.001" placeholder="例如 1.355"></div>
+<div class="field"><label>視準軸高程(m)</label><input type="number" id="instrumentHeight" readonly placeholder="自動計算"></div>
+</div>
+<div class="note">範例：B.M. = <span class="highlight">75.455</span>， 水準尺讀數 = <span class="highlight">1.355</span>， 視準軸高程 = 75.455 + 1.355 = <span class="highlight">76.810</span>。</div>
+</div>
+
+<!-- 樓層 -->
+<div class="section-title">樓層選擇與降版設定</div>
+<div class="card">
+<div class="card-title">1. 選擇樓層</div>
+<div class="field-row">
+<div class="field"><label>樓層</label>
+<select id="floorSelect">
+<option value="">請選擇樓層</option>
+<option value="LB4">LB4</option>
+<option value="LB3">LB3</option>
+<option value="LB2">LB2</option>
+<option value="LB1">LB1</option>
+<option value="GL">GL</option>
+<option value="L10">L10</option>
+<option value="L20">L20</option>
+<option value="L30">L30</option>
+<option value="L40">L40</option>
+<option value="LRF">LRF</option>
+</select></div>
+<div class="field"><label>樓層高程(m)</label><input type="number" id="floorElevation" readonly></div>
+<div class="note">樓層高程資料來源：下方「各樓板高程」資料庫表。</div>
+</div>
+
+<!-- PC 層設定 -->
+<div class="card">
+<div class="card-title">2. 降版設定</div>
+<div class="field-row" style="align-items:center;">
+<label><input type="checkbox" id="pcEnabled"> 啟用降版</label>
+<div class="field" style="max-width:120px;"><label>降版厚度(cm)</label><input type="number" id="pcValue" step="1" placeholder="例如 15"></div>
+</div>
+</div>
+
+<!-- TYPE -->
+<div class="card">
+<div class="card-title">3. 設定版厚 TYPE(以 cm 輸入)</div>
+<div class="field-row" style="align-items: center;">
+  <div class="field" style="flex: 1 1 auto;">
+    <span class="note text-left">
+      只需輸入降版厚度(cm)，例如：20、30。<br />
+      顯示時會自動變成「20版」「30版」。
+    </span>
+  </div>
+  <button class="btn" id="addTypeBtn" type="button">＋ 新增 TYPE</button>
+</div>
+<div class="table-wrapper"><table>
+<thead><tr><th>TYPE</th><th>厚度(m)</th><th>刪除</th></tr></thead>
+<tbody id="typeTableBody"></tbody></table></div>
+</div>
+
+<!-- 結果 -->
+<div class="section-title">計算結果</div>
+<div class="card"><div class="card-title">各 TYPE 設計高程與水準尺讀數</div>
+<div class="table-wrapper"><table>
+<thead><tr><th>TYPE</th><th>設計高程(m)</th><th>水準尺讀數(m)</th></tr></thead>
+<tbody id="resultBody"></tbody>
+</table></div>
+<div class="note text-left">
+  計算公式說明：<br />
+  1. 視準軸高程 = B.M. + 水準尺讀數（初始）<br />
+  2. 樓層高程 = 由資料庫表取得（例如 L20 = 225.15 m）<br />
+  3. 降版厚度(cm) → 轉換為 m：厚度(m) = 厚度(cm) ÷ 100<br />
+  4. 設計高程 = 樓層高程 − 降版厚度(m)<br />
+  5. 水準尺讀數 = 視準軸高程 − 設計高程
+</div>
+</div>
+
+<!-- 資料庫 -->
+<div class="section-title">各樓板高程（資料庫）</div>
+<div class="table-wrapper"><table>
+<thead><tr><th>樓層</th><th>高程(m)</th></tr></thead>
+<tbody>
+<tr><td>LB4</td><td data-floor="LB4">190.600</td></tr>
+<tr><td>LB3</td><td data-floor="LB3">200.800</td></tr>
+<tr><td>LB2</td><td data-floor="LB2">208.700</td></tr>
+<tr><td>LB1</td><td data-floor="LB1">212.150</td></tr>
+<tr><td>GL</td><td data-floor="GL">217.000</td></tr>
+<tr><td>L10</td><td data-floor="L10">218.200</td></tr>
+<tr><td>L20</td><td data-floor="L20">225.150</td></tr>
+<tr><td>L30</td><td data-floor="L30">231.600</td></tr>
+<tr><td>L40</td><td data-floor="L40">241.600</td></tr>
+<tr><td>LRF</td><td data-floor="LRF">250.100</td></tr>
+</tbody></table></div>
+<div class="note">※ 若未來高程有變更，再麻煩私訊做修正，謝謝!</div>
+
+</div>
+
+<script>
+const floorData={
+  LB4:190.6,
+  LB3:200.8,
+  LB2:208.7,
+  LB1:212.15,
+  GL:217.0,
+  L10:218.2,
+  L20:225.15,
+  L30:231.6,
+  L40:241.6,
+  LRF:250.1
+};
+
+let types=[{id:1,cm:20},{id:2,cm:30}],nextTypeId=3;
+
+const bmInput=document.getElementById("bmInput");
+const staffInput=document.getElementById("staffInput");
+const instrumentInput=document.getElementById("instrumentHeight");
+const floorSelect=document.getElementById("floorSelect");
+const floorElevationInput=document.getElementById("floorElevation");
+const typeTableBody=document.getElementById("typeTableBody");
+const resultBody=document.getElementById("resultBody");
+const addTypeBtn=document.getElementById("addTypeBtn");
+const pcEnabled=document.getElementById("pcEnabled");
+const pcValue=document.getElementById("pcValue");
+
+function toNum(v){const n=parseFloat(v);return isNaN(n)?null:n;}
+function fmt(n){return n.toFixed(3);} 
+
+function calcInstrumentHeight(){
+  const bm=toNum(bmInput.value),s=toNum(staffInput.value);
+  if(bm===null||s===null){instrumentInput.value="";return null;}
+  const ih=bm+s;
+  instrumentInput.value=fmt(ih);
+  return ih;
+}
+function updateFloorElevation(){
+  const k=floorSelect.value;
+  if(!k||floorData[k]===undefined){floorElevationInput.value="";return null;}
+  const e=floorData[k];
+  floorElevationInput.value=fmt(e);
+  return e;
+}
+
+function renderTypes(){
+  typeTableBody.innerHTML="";
+  types.forEach(t=>{
+    let tr=document.createElement("tr");
+    let td1=document.createElement("td");
+    td1.innerHTML=`<span class="chip">${t.cm? t.cm+"版":"—"}</span>`;
+    let td2=document.createElement("td");
+    let inp=document.createElement("input");
+    inp.type="number";inp.step="1";inp.value=t.cm??"";
+    inp.addEventListener("input",()=>{t.cm=toNum(inp.value);calcAndRender();});
+    td2.appen
